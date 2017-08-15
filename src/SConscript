@@ -1,0 +1,9 @@
+
+Import('env')
+
+object = env.Object(
+  '.o/cp',
+  'cp.c'
+)
+
+Return('object')

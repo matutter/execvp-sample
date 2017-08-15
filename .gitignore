@@ -1,0 +1,4 @@
+build/
+test/results/
+*.dblite
+*.swp

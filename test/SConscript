@@ -1,0 +1,27 @@
+
+Import('env objects')
+
+test_001_obj = env.Object('.o/001', 'test001.c')
+
+test001 = env.Program(
+  '001.test',
+  source=objects + [
+    test_001_obj
+  ]
+)
+
+run001 = Command(
+  target='#test/results/001.result',
+  source=test001,
+  action='$SOURCE | tee $TARGET'
+)
+
+Depends(run001, test001)
+
+tests = [
+  run001
+]
+
+AlwaysBuild(tests)
+
+Return('tests')
