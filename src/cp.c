@@ -28,20 +28,27 @@
 #include "cp.h"
 
 static int run(ProcessInfo*);
+static ProcessInfo* newProcess(char**);
 static inline int beforeRun(ProcessInfo*);
 static inline int allocateBuffer(ProcessInfo*);
 
 const struct CHILD_PROC_MOD ChildProcess = {
-  .run = run
+  .run = run,
+  .new = newProcess
 };
 
 static inline int allocateBuffer(ProcessInfo* info) {
+  debug_where(
+    "Allocating %lu, double: %d"
+    , info->buffer.size
+    , info->buffer.double_buffer
+  );
   int status = -1;
 
   size_t size = info->buffer.size;
   if(info->buffer.double_buffer) size *= 2;
 
-  unsigned char* ptr = realloc(info->buffer.ptr, size);
+  unsigned char* ptr = malloc(size);
 
   if(ptr) {
     info->buffer.ptr = ptr;
@@ -51,6 +58,37 @@ static inline int allocateBuffer(ProcessInfo* info) {
   return status;
 }
 
+static ProcessInfo* newProcess(char** argv) {
+  debug_where();
+
+  int status = 0;
+
+  ProcessInfo* new_info = calloc(1, sizeof(ProcessInfo));
+  if(new_info) {
+
+    ProcessInfo info = {
+      .pipes.fds = { 0, 0 },
+      .status = 0,
+      .argv = argv,
+      .buffer = {
+        .size = BUFSIZ,
+        .double_buffer = true,
+        .ptr = NULL
+      }
+    };
+
+    status = allocateBuffer(&info);
+    if(status == 0) {
+      memcpy(new_info, &info, sizeof(ProcessInfo));
+    } else {
+      debug_warning("Failed to allocate data buffer");
+    }
+  } else {
+    debug_warning("Failed to allocate ProcessInfo");
+  }
+
+  return new_info;
+}
 
 /**
 * Validate and setup `info` object.
@@ -59,32 +97,17 @@ static inline int beforeRun(ProcessInfo* info) {
   debug_where();
   int status = 0;
 
-  char* executable = info->executable;
-  char** argv = info->argv;
-  int argc = info->argc;
-
-  if(executable == NULL) {
+  if(info->argv == NULL || info->argv[0] == NULL) {
     debug_warning("Executable not defined.");
     errno = EINVAL;
     status = -1;
   }
 
   if(status == 0) {
-    status = allocateBuffer(info);
-  }
-
-  if(status == 0) {
-    info->command = realloc(info->command, sizeof(char*) * (argc + 1));
-    info->command[0] = executable;
-    info->command[argc] = NULL;
-
-    for(int i = 0; i < argc; i++) {
-      info->command[i+1] = argv[i];
-    }
 
     #if 0
-      for(int i = 0; i < command_argc; i++) {
-        debug_info("arg %d: %s", i, info->command[i]);
+      for(int i = 0; i < argv; i++) {
+        debug_info("arg %d: %s", i, info->argv[i]);
       }
     #endif
 
@@ -122,7 +145,7 @@ int run(ProcessInfo* info) {
       status = dup2(info->pipes.io.write, STDOUT_FILENO);
       if(status != -1) {
         status = 0;
-        execvp(info->executable, info->command);
+        execvp(info->argv[0], info->argv);
         fflush(stdout);
       }
 
@@ -136,20 +159,27 @@ int run(ProcessInfo* info) {
         waitpid(info->pid, &info->status, 0);
       } while (!WIFEXITED(info->status));
 
-      size_t size = 0;
+      size_t this_read = 0;
+      size_t last_read = 0;
       size_t limit = info->buffer.size;
       unsigned char* ptr = info->buffer.ptr;
       bool double_buffer = info->buffer.double_buffer;
       do {
-        size = read(info->pipes.io.read, ptr, limit);
-        if(size > 0) {
-          ptr[size-1] = '\0';
-          debug("read %lu: %s", size, ptr);
+
+        this_read = read(info->pipes.io.read, ptr+last_read, limit);
+        if(this_read > 0) {
+          ptr[this_read+last_read] = '\0';
+          debug("read %lu: %s", this_read, ptr);
+
+          if(last_read > 0) {
+            memcpy(ptr, ptr+last_read, last_read);
+          }
+
+          last_read = this_read;
         }
-      } while(size > 0);
+      } while(this_read > 0);
 
     }
-
   }
 
   return status;

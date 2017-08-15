@@ -1,25 +1,33 @@
 
 Import('env objects')
 
-test_001_obj = env.Object('.o/001', 'test001.c')
+def make_test(name):
 
-test001 = env.Program(
-  '001.test',
-  source=objects + [
-    test_001_obj
-  ]
-)
+  test_obj = env.Object(
+    '.o/%s' % name,
+    'test%s.c' % name
+  )
 
-run001 = Command(
-  target='#test/results/001.result',
-  source=test001,
-  action='$SOURCE | tee $TARGET'
-)
+  test = env.Program(
+    '%s.test' % name,
+    source=objects + [
+      test_obj
+    ]
+  )
 
-Depends(run001, test001)
+  run_test = Command(
+    target='#test/results/%s.result' % name,
+    source=test,
+    action='$SOURCE | tee $TARGET'
+  )
+
+  Depends(run_test, test)
+
+  return run_test
 
 tests = [
-  run001
+  make_test('001'),
+  make_test('002')
 ]
 
 AlwaysBuild(tests)

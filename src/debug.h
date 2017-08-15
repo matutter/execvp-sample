@@ -36,6 +36,7 @@
     #define debug(fmt, args...) \
       do { \
         printf(fmt KRST "\n", ##args); \
+        fflush(stdout); \
       } while(0)
 
   #endif

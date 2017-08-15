@@ -13,10 +13,7 @@ union Pipe {
 
 typedef struct PROC_INFO ProcessInfo;
 struct PROC_INFO {
-  char* executable;
-  int argc;
   char** argv;
-  char** command;
   int status;
   union Pipe pipes;
   pid_t pid;
@@ -29,6 +26,7 @@ struct PROC_INFO {
 
 struct CHILD_PROC_MOD {
   int (* const run)(struct PROC_INFO*);
+  struct PROC_INFO* (* const new)(char**);
 };
 
 const struct CHILD_PROC_MOD ChildProcess;
