@@ -1,7 +1,7 @@
 
 Import('env objects')
 
-def make_test(name):
+def make_test(name, args=""):
 
   test_obj = env.Object(
     '.o/%s' % name,
@@ -18,7 +18,7 @@ def make_test(name):
   run_test = Command(
     target='#test/results/%s.result' % name,
     source=test,
-    action='$SOURCE | tee $TARGET'
+    action='$SOURCE %s | tee $TARGET' % args
   )
 
   Depends(run_test, test)
@@ -27,7 +27,8 @@ def make_test(name):
 
 tests = [
   make_test('001'),
-  make_test('002')
+  make_test('002'),
+  make_test('003', "-max 16")
 ]
 
 AlwaysBuild(tests)
