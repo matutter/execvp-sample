@@ -28,7 +28,8 @@ def make_test(name, args=""):
 tests = [
   make_test('001'),
   make_test('002'),
-  make_test('003', "-max 16")
+  make_test('003', "-max 16"),
+  make_test('004')
 ]
 
 AlwaysBuild(tests)

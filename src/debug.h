@@ -57,7 +57,7 @@
     debug(KGRN fmt, ##args)
 
   #define debug_where(fmt, args...) \
-    debug(KWHT "%s:%s:%d" fmt, __FILE__, __FUNCTION__, __LINE__, ##args)
+    debug(KWHT "%s:%s:%d " fmt, __FILE__, __FUNCTION__, __LINE__, ##args)
 
   #define debug_errno(fmt, args...) \
     debug(KMAG "[%d:%s] " fmt, errno, strerror(errno), ##args)

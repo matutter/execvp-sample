@@ -21,8 +21,17 @@
 // pipe
 #include <unistd.h>
 
+// SIGKILL
+#include <signal.h>
+
 // malloc
 #include <stdlib.h>
+
+// O_NONBLOCK
+#include <fcntl.h>
+
+// select
+#include <sys/select.h>
 
 #include "debug.h"
 #include "cp.h"
@@ -128,6 +137,57 @@ static inline int beforeRun(ProcessInfo* info) {
   return status;
 }
 
+ssize_t process_io(ProcessInfo* info) {
+  int status = 0;
+  ssize_t this_read = 0;
+  ssize_t last_read = 0;
+  ssize_t limit = info->buffer.size;
+  unsigned char* ptr = info->buffer.ptr;
+  bool double_buffer = info->buffer.double_buffer;
+
+  fd_set set;
+  struct timeval timeout;
+
+  FD_ZERO(&set);
+  FD_SET(info->pipes.io.read, &set);
+
+  timeout.tv_sec = 2;
+  timeout.tv_usec = 0;
+
+  status = select(FD_SETSIZE, &set, NULL, NULL, &timeout);
+  debug_info("Select returned %d", status);
+  if(status > 0) {
+    this_read = read(info->pipes.io.read, ptr+last_read, limit);
+    if(this_read > 0) {
+      ptr[this_read+last_read] = '\0';
+      debug("read %lu: %s", this_read, ptr);
+
+      if(last_read > 0) {
+        memcpy(ptr, ptr+last_read, last_read);
+      }
+
+      last_read = this_read;
+    }
+  }
+
+  return this_read;
+}
+
+void killAndWait(ProcessInfo* info) {
+
+  int wpid = 0;
+  do {
+    wpid = waitpid(info->pid, &info->status, WNOHANG);
+    if(wpid == 0) {
+      debug("Sending SIGKILL to %d", info->pid);
+      kill(info->pid, SIGKILL);
+      usleep(100);
+    }
+  } while (wpid == 0);
+  //} while (!WIFEXITED(info->status));
+  debug("Child %d is dead", info->pid);
+
+}
 
 /**
 * Run the processes with the following info.
@@ -154,30 +214,27 @@ int run(ProcessInfo* info) {
       // parent
       debug_success("(parent)");
       close(info->pipes.io.write);
+      // for "polling" nonblocking read
+      status = fcntl(info->pipes.io.read, F_SETFL, fcntl(info->pipes.io.read, F_GETFL) | O_NONBLOCK);
+      if(status != 0) {
+        debug_warning("Failed to set O_NONBLOCK");
+      }
 
+      int wpid;
       do {
-        waitpid(info->pid, &info->status, 0);
-      } while (!WIFEXITED(info->status));
-
-      size_t this_read = 0;
-      size_t last_read = 0;
-      size_t limit = info->buffer.size;
-      unsigned char* ptr = info->buffer.ptr;
-      bool double_buffer = info->buffer.double_buffer;
-      do {
-
-        this_read = read(info->pipes.io.read, ptr+last_read, limit);
-        if(this_read > 0) {
-          ptr[this_read+last_read] = '\0';
-          debug("read %lu: %s", this_read, ptr);
-
-          if(last_read > 0) {
-            memcpy(ptr, ptr+last_read, last_read);
+        wpid = waitpid(info->pid, &info->status, WNOHANG);
+        if(wpid == 0) {
+          ssize_t bytes_read = process_io(info);
+          if(bytes_read == 0) {
+            debug_info("Timeout exceeded for %d", info->pid);
+            killAndWait(info);
+          } else {
+            debug_info("Waiting!");
           }
-
-          last_read = this_read;
         }
-      } while(this_read > 0);
+      } while (wpid == 0);
+
+      process_io(info);
 
     }
   }
