@@ -215,10 +215,10 @@ int run(ProcessInfo* info) {
       debug_success("(parent)");
       close(info->pipes.io.write);
       // for "polling" nonblocking read
-      status = fcntl(info->pipes.io.read, F_SETFL, fcntl(info->pipes.io.read, F_GETFL) | O_NONBLOCK);
+      /*status = fcntl(info->pipes.io.read, F_SETFL, fcntl(info->pipes.io.read, F_GETFL) | O_NONBLOCK);
       if(status != 0) {
         debug_warning("Failed to set O_NONBLOCK");
-      }
+      }*/
 
       int wpid;
       do {
