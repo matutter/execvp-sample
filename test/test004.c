@@ -29,9 +29,9 @@ int main(void) {
 
   int status = 0;
 
-  run_shell("for i in {30..1..5};do echo -n \"$i.\" && sleep 5; done");
+  run_shell("for i in {30..1..5};do echo -n \"$i @ $(date)\" && sleep 5; done");
 
-  run_shell("for i in {1..5};do echo -n \"$i.\" && sleep 1; done");
+  run_shell("for i in {1..5};do echo -n \"$i @ $(date)\" && sleep 1; done");
 
   return status;
 }

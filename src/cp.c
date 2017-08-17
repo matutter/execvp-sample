@@ -181,7 +181,7 @@ void killAndWait(ProcessInfo* info) {
     if(wpid == 0) {
       debug("Sending SIGKILL to %d", info->pid);
       kill(info->pid, SIGKILL);
-      usleep(100);
+      usleep(200);
     }
   } while (wpid == 0);
   //} while (!WIFEXITED(info->status));
@@ -228,8 +228,6 @@ int run(ProcessInfo* info) {
           if(bytes_read == 0) {
             debug_info("Timeout exceeded for %d", info->pid);
             killAndWait(info);
-          } else {
-            debug_info("Waiting!");
           }
         }
       } while (wpid == 0);
